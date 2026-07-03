@@ -139,6 +139,26 @@ Client component 使用：
 - 浏览器 bundle 不得包含 provider key、Supabase secret/service role、数据库 URL。
 - 需要浏览器直连的业务表必须启用 RLS。
 
+## 可选：图片上传
+
+如需支持对话中上传图片，使用 Supabase Storage 保存图片文件，消息历史中只保存图片 URL。
+
+固定路径：
+
+- 创建公开 Storage bucket，限制为图片 MIME 和合理大小。
+- 浏览器选择图片后，先提交到项目自己的上传 API，再使用服务端 Supabase secret/service role client 写入 Storage。
+- 上传成功后返回 AI SDK `FileUIPart[]`，包含 `type: "file"`、`mediaType`、`filename`、`url`，前端调用 `chat.sendMessage({ text, files })`。
+- 消息渲染遇到 image file part 时显示图片。
+- `onEnd` 继续保存完整 `UIMessage[]`；其中只保存 public URL，不保存图片二进制。
+- `/api/chat` 数据流不因图片上传改变，仍消费完整 `UIMessage[]` 并使用 `toBaseMessages(body.messages)`。
+
+注意：
+
+- Storage migration 可能需要 secret/service role 权限
+- 浏览器直传 Storage 会额外依赖 `storage.objects` RLS policy；为保持主路径简单，直接使用服务端上传 API。
+- 图片 bucket 公开读取，避免签名 URL 过期或模型服务无法访问。
+- 简化实现时可忽略图片清理等细节路径
+
 ## 验收
 
 - 登录后能从服务端历史 hydrate 出 `UIMessage[]`。
